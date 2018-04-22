@@ -1,0 +1,13 @@
+
+sudo: false
+
+install:
+    - "wget https://github.com/lh3/minimap2/releases/download/v2.10/minimap2-2.10_x64-linux.tar.bz2"
+    - "tar xvf minimap2-2.10_x64-linux.tar.bz2"
+    - "export PATH=$PWD/bin:$PWD/minimap2-2.10_x64-linux:$PATH"
+
+script:
+    - "sixess -V"
+    - "sixess -h"
+    - "! sixess -x"
+    - "sixess test/R1.fq.gz"

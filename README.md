@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/tseemann/sixess.svg?branch=master)](https://travis-ci.org/tseemann/sixess) [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0) [](#lang-au)
+
 # sixess
 Rapid 16s rDNA from isolate FASTQ files
 
