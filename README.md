@@ -95,6 +95,6 @@ Report bugs and give suggesions on the
 
 [GPL Version 3](https://raw.githubusercontent.com/tseemann/sixess/master/LICENSE)
 
-##Author
+## Author
 
 [Torsten Seemann](http://tseemann.github.io)
