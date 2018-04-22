@@ -3,7 +3,9 @@ set -e
 
 EXE=$(basename $0)
 BINDIR=$(dirname $(readlink -f $0))
-DATABASE=$(readlink -f "$BINDIR/../db/RDP/RDP")
+DBDIR=$(readlink -f "$BINDIR/../db/")
+DBINST=$(cd "$DBDIR" && echo *)
+DB="RDP"
 THREADS=1
 QUIET=0
 
@@ -11,14 +13,13 @@ QUIET=0
 # Reusable functions
 
 function msg {
-  if [ ! "$QUIET" ]; then
+  if [ $QUIET -eq 0 ]; then
     echo -e "$*" 1>&2
   fi
 }
 
 function err {
-  #echo "ERROR: $*" 1>&2
-  msg "ERROR: $*"
+  echo "ERROR: $*" 1>&2
   exit 1
 }
 
@@ -34,23 +35,23 @@ function banner {
 }
 
 function usage {
-  msg "Name:\n  $EXE - rapid 16s identification from isolate FASTQ"
-  msg "Author:\n  Torsten Seemann"
-  msg "Usage:\n  $EXE [options] <reads>"
-  msg "Parameters:"
-  msg "  <reads>     Genomic sequencing reads: {fq,fa}[.gz]"
-  msg "Options:"
-  msg "  -h          Show this help"
-  msg "  -q          Quiet mode, don't output to stderr ($QUIET)"
-  msg "  -d          Database ($DATABASE)"
-  msg "  -t          CPU threads ($THREADS)"
-  exit 1 
+  QUIET=0
+  msg "SYNOPSIS\n  $EXE - rapid 16s identification from isolate FASTQ"
+  msg "USAGE\n  $EXE [options] <reads.{fa,fq}[.gz]>"
+  msg "OPTIONS"
+  msg "  -h        Show this help"
+  msg "  -q        Quiet mode, no output"
+  msg "  -p DIR    Database folder ($DBDIR)"
+  msg "  -d FILE   Database {$DBINST} ($DB)"
+  msg "  -t NUM    CPU threads ($THREADS)"
+  msg "AUTHOR\n  Torsten Seemann - https://github.com/MDU-PHL/sixess"
+  exit
 }
 
 #...........................................................................
 # Parse the command line options
 
-while getopts 'hd:t:q' opt ; do
+while getopts 'hqp:d:t:' opt ; do
   case $opt in
     h)
       usage
@@ -58,8 +59,11 @@ while getopts 'hd:t:q' opt ; do
     q)
       QUIET=1
       ;;
+    p)
+      DBDIR=$OPTARG
+      ;;
     d)
-      DATABASE=$OPTARG
+      DB=$OPTARG
       ;;
     t)
       THREADS=$OPTARG
@@ -71,10 +75,7 @@ done
 shift $((OPTIND-1))
 
 # read our mandatory positional parameters
-
-if [ $# -lt 1 ]; then
-  usage
-fi
+[ $# -lt 1 ] && err "Please provide a sequence read file"
 
 #............................................................................
 banner "Checking command line parameters"
@@ -83,6 +84,8 @@ if [ "$THREADS" -eq "0" ]; then
   THREADS=$(getconf _NPROCESSORS_ONLN)
   msg "Auto-detected $THREADS threads"
 fi
+
+DATABASE="$DBDIR/$DB"
 
 [ ! -r "$DATABASE" ] && err "Can not read FASTA database: $DATABASE"
 
@@ -110,7 +113,7 @@ banner "Mapping reads to $DATABASE"
 
 ACC=$(minimap2 -t 8 -x sr "$DATABASE" $READS 2> /dev/null \
       | cut -f 6 | sort | uniq -c | sort -nr \
-      | head -n 1 | sed 's/^.*S/S/')
+      | head -n 1 | sed 's/^ *//' | cut -d ' ' -f 2)
 msg "Top hit: $ACC"
       
 HIT=$(grep -h -F "$ACC" "$DATABASE")
@@ -123,6 +126,3 @@ msg "Species: $BINOMIAL"
 banner "Done."
 
 echo "$BINOMIAL"
-
-
-
