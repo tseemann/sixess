@@ -6,7 +6,7 @@ EXE=$(basename $0)
 BINDIR=$(dirname $(readlink -f $0))
 DBDIR=$(readlink -f "$BINDIR/../db/")
 DBINST=$(cd "$DBDIR" && echo *)
-DB="RDP"
+DB="NCBI"
 THREADS=1
 QUIET=0
 
