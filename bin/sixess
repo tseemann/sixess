@@ -1,6 +1,7 @@
 #!/bin/bash
 set -e
 
+VERSION="0.1"
 EXE=$(basename $0)
 BINDIR=$(dirname $(readlink -f $0))
 DBDIR=$(readlink -f "$BINDIR/../db/")
@@ -36,7 +37,7 @@ function banner {
 
 function usage {
   QUIET=0
-  msg "SYNOPSIS\n  $EXE - rapid 16s identification from isolate FASTQ"
+  msg "SYNOPSIS\n  $EXE $VERSION - rapid 16s identification from isolate FASTQ"
   msg "USAGE\n  $EXE [options] <reads.{fa,fq}[.gz]>"
   msg "OPTIONS"
   msg "  -h        Show this help"
@@ -44,6 +45,7 @@ function usage {
   msg "  -p DIR    Database folder ($DBDIR)"
   msg "  -d FILE   Database {$DBINST} ($DB)"
   msg "  -t NUM    CPU threads ($THREADS)"
+  msg "  -V        Print version and exit"
   msg "AUTHOR\n  Torsten Seemann - https://github.com/MDU-PHL/sixess"
   exit
 }
@@ -51,10 +53,14 @@ function usage {
 #...........................................................................
 # Parse the command line options
 
-while getopts 'hqp:d:t:' opt ; do
+while getopts 'hqVp:d:t:' opt ; do
   case $opt in
     h)
       usage
+      ;;
+    V)
+      echo "$EXE $VERSION"
+      exit
       ;;
     q)
       QUIET=1
