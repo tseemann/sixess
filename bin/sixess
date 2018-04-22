@@ -1,31 +1,24 @@
 #!/bin/bash
 set -e
 
-#grep -h -F $(minimap2 -t 8 -x sr ../db/RDP/RDP $(mdu-reads --format R12 2017-11548) | cut -f 6 | sort | uniq -c | sort -nr | head -n 1 | sed 's/^.*S/S/') ../db/RDP/RDP
-
 EXE=$(basename $0)
 BINDIR=$(dirname $(readlink -f $0))
 DATABASE=$(readlink -f "$BINDIR/../db/RDP/RDP")
-FORCE=0
-CUTOFF=3
-KMER=31
 THREADS=1
-RETAIN=0
+QUIET=0
 
 #............................................................................
 # Reusable functions
 
-function banner {
-  HBAR="--------------------------------------------------------------------"
-  echo -e "$HBAR\n$*\n$HBAR" 1>&2
-}
-
 function msg {
-  echo -e "$*" 1>&2
+  if [ ! "$QUIET" ]; then
+    echo -e "$*" 1>&2
+  fi
 }
 
 function err {
-  echo "ERROR: $*" 1>&2
+  #echo "ERROR: $*" 1>&2
+  msg "ERROR: $*"
   exit 1
 }
 
@@ -35,46 +28,38 @@ function exitOnFailure {
   fi
 }
 
+function banner {
+  HBAR="--------------------------------------------------------------------"
+  msg "$HBAR\n$*\n$HBAR"
+}
+
 function usage {
   msg "Name:\n  $EXE - rapid 16s identification from isolate FASTQ"
   msg "Author:\n  Torsten Seemann"
-  msg "Usage:\n  $EXE [options] <outdir> <reads ...>"
+  msg "Usage:\n  $EXE [options] <reads>"
   msg "Parameters:"
-  msg "  <outdir>    Output folder"
   msg "  <reads>     Genomic sequencing reads: {fq,fa}[.gz]"
   msg "Options:"
   msg "  -h          Show this help"
+  msg "  -q          Quiet mode, don't output to stderr ($QUIET)"
   msg "  -d          Database ($DATABASE)"
   msg "  -t          CPU threads ($THREADS)"
-#  msg "  -k          Assembly kmer ($KMER)"
-#  msg "  -c          Assembly coverage cutoff ($CUTOFF)"
-  msg "  -f          Force overwrite of <outdir>"
-  msg "  -r          Retain intermediate files in <outdir>"
   exit 1 
 }
 
 #...........................................................................
 # Parse the command line options
 
-while getopts 'hfrc:k:d:t:' opt ; do
+while getopts 'hd:t:q' opt ; do
   case $opt in
     h)
       usage
       ;;
-    f)
-      FORCE=1
-      ;;    
-    r)
-      RETAIN=1
-      ;;    
+    q)
+      QUIET=1
+      ;;
     d)
       DATABASE=$OPTARG
-      ;;
-    c)
-      CUTOFF=$OPTARG
-      ;;
-    k)
-      KMER=$OPTARG
       ;;
     t)
       THREADS=$OPTARG
@@ -87,7 +72,7 @@ shift $((OPTIND-1))
 
 # read our mandatory positional parameters
 
-if [ $# -lt 2 ]; then
+if [ $# -lt 1 ]; then
   usage
 fi
 
@@ -101,25 +86,17 @@ fi
 
 [ ! -r "$DATABASE" ] && err "Can not read FASTA database: $DATABASE"
 
-OUTDIR="$(readlink -f "$1")"
-[ -d "$OUTDIR" -a "$FORCE" -eq "0" ] && err "Output folder already exists: $OUTDIR"
-shift
-
 READFILE="$(readlink -f "$1")"
 [ ! -r "$READFILE" ] && err "Can not read first FASTQ file: $READFILE"
 READS="$*"
 
-msg "Output folder: $OUTDIR"
 msg "Reads: $READS"
 msg "Database: $DATABASE"
-msg "Retain: $RETAIN"
-#msg "Coverage: $CUTOFF"
-#msg "Kmer: $KMER"
 
 #............................................................................
 banner "Checking external dependencies"
 
-for EXE in minimap2 fml-asm seqtk ggsearch36 glsearch36 fasta36 infoseq sizeseq ; do
+for EXE in minimap2 sort uniq cut head sed; do
   WHERE=$(which $EXE)
   if [ "$WHERE" != "" ]; then
     msg "Checking for $EXE - found $WHERE"
@@ -129,75 +106,23 @@ for EXE in minimap2 fml-asm seqtk ggsearch36 glsearch36 fasta36 infoseq sizeseq 
 done
 
 #............................................................................
-banner "Making output folder: $OUTDIR"
-
-mkdir -v -p "$OUTDIR"
-exitOnFailure $? "mkdir"
-
-#............................................................................
 banner "Mapping reads to $DATABASE"
 
-FASTQ="$OUTDIR/reads.fq"
-cat $READS \
-	| seqtk trimfq - \
-	| minimap2 -x sr -a -t "$THREADS" "$DATABASE" - \
-	| samtools view -u -F 4 - \
-	| samtools fastq -0 "$FASTQ" -
+ACC=$(minimap2 -t 8 -x sr "$DATABASE" $READS 2> /dev/null \
+      | cut -f 6 | sort | uniq -c | sort -nr \
+      | head -n 1 | sed 's/^.*S/S/')
+msg "Top hit: $ACC"
+      
+HIT=$(grep -h -F "$ACC" "$DATABASE")
+msg "Description: $HIT"
 
-[ ! -s "$FASTQ" ] && err "No 16s reads found!"
-msg "Stats:"
-seqtk fqchk "$FASTQ" | head -n 4
-
-#............................................................................
-banner "Assembling reads with FERMI-LITE"
-
-CONTIGS="$OUTDIR/contigs.fasta"
-fml-asm -e 63 -A "$FASTQ" | seqtk seq -A -C - | seqtk rename - contig > "$CONTIGS"
-exitOnFailure $? "fml-asm"
-ls -lsa "$CONTIGS"
-[ ! -s "$CONTIGS" ] && err "No contigs were assembled!"
-infoseq -auto -filter < "$CONTIGS"
+BINOMIAL=$(echo "$HIT" | cut -d ' ' -f 2,3)
+msg "Species: $BINOMIAL"
 
 #............................................................................
-banner "Sorting contigs to get longest one"
+banner "Done."
 
-[ ! -r "$CONTIGS" ] && err "Can not see '$CONTIGS' - assembly failed?"
-GENE="$OUTDIR/gene.fa"
-sizeseq -auto -filter -descending Y < "$CONTIGS" \
-	| seqret -auto -filter -firstonly > "$GENE"
-infoseq -auto -filter < "$GENE"
+echo "$BINOMIAL"
 
-#............................................................................
-banner "Search against $DATABASE"
 
-BLS="$OUTDIR/contigs.bls"
-fasta36 -T "$THREADS" -b=20 "$GENE" "$DATABASE" > "$BLS"
-exitOnFailure $? "ggsearch"
-msg "Wrote search result to: $BLS"
-grep -m 4 -A 2 '^>>' "$BLS"
 
-#............................................................................
-banner "Prediction"
-
-PRED="$OUTDIR/species.txt"
-grep -m 1 '^>>' "$BLS" | cut -d ' ' -f 2,3 > "$PRED"
-exitOnFailure $? "grep"
-cat "$PRED"
-
-#............................................................................
-banner "Clean up"
-
-if [ "$RETAIN" -eq "0" ]; then
-  msg "Removing temporary files"
-  rm -fv "$FASTQ" "$CONTIGS"
-else
-  msg "Keeping all files in $OUTDIR"
-fi  
-
-#............................................................................
-banner "Finished"
-msg "Results in: $PRED"
-
-#............................................................................
-banner "Answer"
-cat "$PRED"
