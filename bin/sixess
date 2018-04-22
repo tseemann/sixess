@@ -1,9 +1,11 @@
 #!/bin/bash
 set -e
 
+#grep -h -F $(minimap2 -t 8 -x sr ../db/RDP/RDP $(mdu-reads --format R12 2017-11548) | cut -f 6 | sort | uniq -c | sort -nr | head -n 1 | sed 's/^.*S/S/') ../db/RDP/RDP
+
 EXE=$(basename $0)
 BINDIR=$(dirname $(readlink -f $0))
-DATABASE="$BINDIR/../db/RDP/RDP"
+DATABASE=$(readlink -f "$BINDIR/../db/RDP/RDP")
 FORCE=0
 CUTOFF=3
 KMER=31
@@ -35,17 +37,17 @@ function exitOnFailure {
 
 function usage {
   msg "Name:\n  $EXE - rapid 16s identification from isolate FASTQ"
-  msg "Author:\n  Torsten Seemann <torsten.seemann@gmail.com>"
+  msg "Author:\n  Torsten Seemann"
   msg "Usage:\n  $EXE [options] <outdir> <reads ...>"
   msg "Parameters:"
   msg "  <outdir>    Output folder"
-  msg "  <reads>     Genomic sequencing reads (FASTQ[.gz])"
+  msg "  <reads>     Genomic sequencing reads: {fq,fa}[.gz]"
   msg "Options:"
   msg "  -h          Show this help"
   msg "  -d          Database ($DATABASE)"
   msg "  -t          CPU threads ($THREADS)"
-  msg "  -k          Assembly kmer ($KMER)"
-  msg "  -c          Assembly coverage cutoff ($CUTOFF)"
+#  msg "  -k          Assembly kmer ($KMER)"
+#  msg "  -c          Assembly coverage cutoff ($CUTOFF)"
   msg "  -f          Force overwrite of <outdir>"
   msg "  -r          Retain intermediate files in <outdir>"
   exit 1 
@@ -99,28 +101,25 @@ fi
 
 [ ! -r "$DATABASE" ] && err "Can not read FASTA database: $DATABASE"
 
-[ ! -r "$DATABASE.nin" ] && err "Can not read BLASTN database: $DATABASE.nin"
-
 OUTDIR="$(readlink -f "$1")"
 [ -d "$OUTDIR" -a "$FORCE" -eq "0" ] && err "Output folder already exists: $OUTDIR"
 shift
 
-FASTQ="$(readlink -f "$1")"
-[ ! -r "$FASTQ" ] && err "Can not read first FASTQ file: $FASTQ"
+READFILE="$(readlink -f "$1")"
+[ ! -r "$READFILE" ] && err "Can not read first FASTQ file: $READFILE"
 READS="$*"
 
 msg "Output folder: $OUTDIR"
-msg "Reads: $*"
+msg "Reads: $READS"
 msg "Database: $DATABASE"
 msg "Retain: $RETAIN"
-msg "Coverage: $CUTOFF"
-msg "Kmer: $KMER"
+#msg "Coverage: $CUTOFF"
+#msg "Kmer: $KMER"
 
 #............................................................................
 banner "Checking external dependencies"
 
-#for EXE in gzip grep sort uniq head tail eqtk megahit velveth velvetg minimap blastn blast_formatter ; do
-for EXE in gzip grep sort uniq head tail seqtk infoseq sizeseq megahit blastn blast_formatter ; do
+for EXE in minimap2 fml-asm seqtk ggsearch36 glsearch36 fasta36 infoseq sizeseq ; do
   WHERE=$(which $EXE)
   if [ "$WHERE" != "" ]; then
     msg "Checking for $EXE - found $WHERE"
@@ -138,86 +137,51 @@ exitOnFailure $? "mkdir"
 #............................................................................
 banner "Mapping reads to $DATABASE"
 
-READIDS="$OUTDIR/reads.ids"
-cat $READS | minimap -S -t "$THREADS" "$DATABASE" - \
-	| cut -f1 | sort | uniq > "$READIDS" 
-NREADS=$(cat "$READIDS" | wc -l)
-msg "Found $NREADS reads matching 16s rRNA sequence"
-[ "$NREADS" -eq "0" ] && err "No 16s reads found!"
-
-#............................................................................
-banner "Extracting mapped reads"
-
 FASTQ="$OUTDIR/reads.fq"
-rm -f "$FASTQ"
-for R in $READS ; do
-  msg "Processing: $R $READIDS"
-  seqtk subseq "$R" "$READIDS" >> "$FASTQ"
-done
+cat $READS \
+	| seqtk trimfq - \
+	| minimap2 -x sr -a -t "$THREADS" "$DATABASE" - \
+	| samtools view -u -F 4 - \
+	| samtools fastq -0 "$FASTQ" -
+
+[ ! -s "$FASTQ" ] && err "No 16s reads found!"
 msg "Stats:"
-seqtk fqchk "$FASTQ" | head -n 3
+seqtk fqchk "$FASTQ" | head -n 4
 
 #............................................................................
-banner "Assembling reads with velvet K=$KMER C=$CUTOFF"
+banner "Assembling reads with FERMI-LITE"
 
-if [ "0" -ne "0" ]; then
-VDIR="$OUTDIR/velvet"
-velveth "$VDIR" "$KMER" -short -fastq "$FASTQ"
-exitOnFailure $? "velveth"
-velvetg "$VDIR" -cov_cutoff "$CUTOFF" -very_clean yes > "$VDIR/velvetg.log"
-exitOnFailure $? "velvetg"
-msg $(grep "^Final" "$VDIR/velvetg.log")
-CONTIGS="$MHDIR/contigs.fa"
-else
-  msg "Skipping."
-fi
-
-#............................................................................
-banner "Assembling reads with MEGAHIT"
-
-MHDIR="$OUTDIR/megahit"
-megahit -r "$FASTQ" -t "$THREADS" -o "$MHDIR" -f 2> /dev/null
-exitOnFailure $? "megahit"
-CONTIGS="$MHDIR/final.contigs.fa"
-msg $(tail "$MHDIR/log" | grep 'STAT')
-
-#............................................................................
-banner "Assembling reads with SPADES"
-
-if [ "0" -ne "0" ]; then
-SDIR="$OUTDIR/spades"
-spades.py -s "$FASTQ" -t "$THREADS" -o "$SDIR" --careful --disable-rr
-exitOnFailure $? "spades"
-CONTIGS="$SDIR/contigs.fasta"
-else
-  msg "Skipping."
-fi
+CONTIGS="$OUTDIR/contigs.fasta"
+fml-asm -e 63 -A "$FASTQ" | seqtk seq -A -C - | seqtk rename - contig > "$CONTIGS"
+exitOnFailure $? "fml-asm"
+ls -lsa "$CONTIGS"
+[ ! -s "$CONTIGS" ] && err "No contigs were assembled!"
+infoseq -auto -filter < "$CONTIGS"
 
 #............................................................................
 banner "Sorting contigs to get longest one"
 
 [ ! -r "$CONTIGS" ] && err "Can not see '$CONTIGS' - assembly failed?"
-GENE="$OUTDIR/contigs.fasta"
+GENE="$OUTDIR/gene.fa"
 sizeseq -auto -filter -descending Y < "$CONTIGS" \
 	| seqret -auto -filter -firstonly > "$GENE"
 infoseq -auto -filter < "$GENE"
 
 #............................................................................
-banner "BLAST result against $DATABASE"
+banner "Search against $DATABASE"
 
 BLS="$OUTDIR/contigs.bls"
-blastn -query "$GENE" -db "$DATABASE" \
-	-evalue 1E-9 -dust no -num_threads "$THREADS" \
-	-out "$BLS" -outfmt 11 -perc_identity 99 -task blastn
-exitOnFailure $? "blastn"
-msg "Wrote blast archive result to: $BLS"
+fasta36 -T "$THREADS" -b=20 "$GENE" "$DATABASE" > "$BLS"
+exitOnFailure $? "ggsearch"
+msg "Wrote search result to: $BLS"
+grep -m 4 -A 2 '^>>' "$BLS"
 
 #............................................................................
 banner "Prediction"
 
 PRED="$OUTDIR/species.txt"
-blast_formatter -archive "$BLS" -outfmt 0 | grep -m 1 -A 6 '^>' > "$PRED"
-exitOnFailure $? "blast_formatter"
+grep -m 1 '^>>' "$BLS" | cut -d ' ' -f 2,3 > "$PRED"
+exitOnFailure $? "grep"
 cat "$PRED"
 
 #............................................................................
@@ -225,7 +189,7 @@ banner "Clean up"
 
 if [ "$RETAIN" -eq "0" ]; then
   msg "Removing temporary files"
-  rm -fr "$OUTDIR"/{velvet,spades,megahit} "$OUTDIR"/reads.{ids,fq}
+  rm -fv "$FASTQ" "$CONTIGS"
 else
   msg "Keeping all files in $OUTDIR"
 fi  
@@ -233,4 +197,7 @@ fi
 #............................................................................
 banner "Finished"
 msg "Results in: $PRED"
-head -n 1 "$PRED"
+
+#............................................................................
+banner "Answer"
+cat "$PRED"
