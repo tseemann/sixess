@@ -10,7 +10,7 @@ script:
     - "sixess -V"
     - "sixess -h"
     - "! sixess -x"
-    - "sixess | grep ERROR"
+    - "sixess 2>&1 | grep ERROR"
     - "sixess test/R1.fq.gz"
     - "sixess -d NOTEXIST test/R1.fq.gz | grep ERROR"
     - "sixess -t 2 -d NCBI test/R1.fq.gz"
