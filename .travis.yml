@@ -12,6 +12,6 @@ script:
     - "! sixess -x"
     - "sixess 2>&1 | grep ERROR"
     - "sixess test/R1.fq.gz"
-    - "sixess -d NOTEXIST test/R1.fq.gz | grep ERROR"
+    - "sixess -d NOTEXIST test/R1.fq.gz 2>&1 | grep ERROR"
     - "sixess -t 2 -d NCBI test/R1.fq.gz"
     - "sixess -q -t 4 test/R1.fq.gz test/R1.fq.gz | grep 'epidermidis'"
