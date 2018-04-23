@@ -1,32 +1,39 @@
 [![Build Status](https://travis-ci.org/tseemann/sixess.svg?branch=master)](https://travis-ci.org/tseemann/sixess) [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0) [](#lang-au)
 
+:warning: **THIS SOFTWARE IS STILL UNDER DEVELOPMENT - USE AT OWN RISK**
+
 # sixess
 Rapid 16s rDNA from isolate FASTQ files
-
-** WARNING: THIS SOFTWARE IS NOT READY TO USE !!! **
 
 ## Introduction
 
 `sixess` is a command-line software tool to identify 
 bacterial species based on 16S rDNA sequence directly
-from WGS FASTQ data. It includes databases from RDP and NCBI.
+from WGS FASTQ data. It includes databases from 
+NCBI (default), RDP and SILVA.
 
-## Usage
+## Quick start
 
 ```
+# just give it sequences!
 % sixess R1.fastq.gz
-<snip>
 Staphylococcus epidermidis
 
+# sometimes there is no match
 % sixess /dev/null
-<snip>
 No matches
 
-% sixess -d RDP R1.fq.gz R2.fq.gz
-Enteroccus faecium
+# give it as many sequence files as needed
+% sixess R1.fq R2.fq
+Enterococcus faecium
 
-% sixess -d SILVA.gz contigs.fa
+# we provide different databases you can choose
+% sixess -d RDP contigs.fa
 Bacillus cereus
+
+# you can provide your own database
+% sixess -p /home/alex/data -d 18S.fa.gz 454_READS.fa
+Carsonella ruddii
 ```
 
 ## Installation
@@ -34,7 +41,7 @@ Bacillus cereus
 ### Source
 ```
 cd $HOME
-git clone https://github.com/MDU-PHL/sixess
+git clone https://github.com/tseemann/sixess
 export PATH=$HOME/sixess/bin:$PATH
 ```
 ### Homebrew
@@ -114,7 +121,7 @@ sixess -d GG R1.fastq.gz
 ### Local installaion
 
 ```
-sixess -p /home/alex -d SILVA.fasta R1.fastq.gz
+sixess -p /home/alex/data -d GG.fa R1.fastq.gz
 ```
 
 ## Algorithm
