@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-VERSION="0.1"
+VERSION="0.2"
 EXE=$(basename $0)
 BINDIR=$(dirname $(readlink -f $0))
 DBDIR=$(readlink -f "$BINDIR/../db/")
@@ -105,7 +105,7 @@ msg "Database: $DATABASE"
 #............................................................................
 banner "Checking external dependencies"
 
-for EXE in minimap2 sort uniq cut head sed; do
+for EXE in minimap2 sort uniq cut head sed gzip; do
   WHERE=$(which $EXE)
   if [ "$WHERE" != "" ]; then
     msg "Checking for $EXE - found $WHERE"
@@ -120,9 +120,10 @@ banner "Mapping reads to $DATABASE"
 ACC=$(minimap2 -t 8 -x sr "$DATABASE" $READS 2> /dev/null \
       | cut -f 6 | sort | uniq -c | sort -nr \
       | head -n 1 | sed 's/^ *//' | cut -d ' ' -f 2)
+
 msg "Top hit: $ACC"
       
-HIT=$(grep -h -F "$ACC" "$DATABASE")
+HIT=$(gzip -c -d -f "$DATABASE" | grep -h -F "$ACC")
 msg "Description: $HIT"
 
 BINOMIAL=$(echo "$HIT" | cut -d ' ' -f 2,3)

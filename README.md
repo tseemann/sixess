@@ -17,6 +17,16 @@ from WGS FASTQ data. It includes databases from RDP and NCBI.
 % sixess R1.fastq.gz
 <snip>
 Staphylococcus epidermidis
+
+% sixess /dev/null
+<snip>
+No matches
+
+% sixess -d RDP R1.fq.gz R2.fq.gz
+Enteroccus faecium
+
+% sixess -d SILVA.gz contigs.fa
+Bacillus cereus
 ```
 
 ## Installation
@@ -38,6 +48,18 @@ conda install -c bioconda -c conda-forge sixess  # COMING SOON
 
 ## Database
 
+### NCBI (bundled, default)
+
+The [NCBI 16S ribosomal RNA project](https://www.ncbi.nlm.nih.gov/refseq/targetedloci/)
+contains curated 16S ribosomal RNA bacteria and archaea RefSeq entries.
+It has ~20,000 entries.
+
+```
+esearch -db nucleotide -query '33175[BioProject] OR 33317[BioProject]' \
+  | efetch -db nuccore -format fasta \
+  > $(which sixess)/../db/NCBI
+```
+
 ### RDP (bundled)
 
 Bacterial 16S rDNA sequences for "type strains" 
@@ -52,28 +74,41 @@ gunzip -c current_Bacteria_unaligned.fa.gz \
   > $(which sixess)/../db/RDP
 ```
 
-### NCBI (bundled)
+### SILVA (bundled)
 
-The [NCBI 16S ribosomal RNA project](https://www.ncbi.nlm.nih.gov/refseq/targetedloci/)
-contains curated 16S ribosomal RNA sequences
-that correspond to bacteria and archaea RefSeq entries.
+[SILVA](https://www.arb-silva.de/)
+is a comprehensive on-line resource for quality checked and 
+aligned ribosomal RNA sequence data.
+The filtered version of the aligned 16S/18S/SSU database
+contains ~100,000 entries.
 
 ```
-esearch -db nucleotide -query '33175[BioProject] OR 33317[BioProject]' \
-  | efetch -db nuccore -format fasta \
-  > $(which sixess)/../db/NCBI
+# replace "132" with latest version as needed
+wget https://www.arb-silva.de/fileadmin/silva_databases/release_132/Exports/SILVA_132_SSURef_Nr99_tax_silva.fasta.gz
+gunzip -v SILVA_132_SSURef_Nr99_tax_silva.fasta.gz \
+  | bioawk -cfastx \
+    '$comment ~ /^Bacteria;|^Archaea;/ \
+    && $comment !~ /(;unidentified|Mitochondria;|;Chloroplast|;uncultured| sp\.)/ \
+    { sub(/^.*;/,"",$comment);
+      gsub("U","T",$seq);
+      print ">" $name " " $comment "\n" $seq }' \
+  | seqtk seq -l 60 -U \
+  > SILVA.tmp1
+cd-hit-est -i SILVA.tmp1 -o SILVA.tmp2 -c 1.0 -T 0 -M 2000 -d 250
+cp SILVA.tmp2 $(which sixess)/../db/SILVA
+rm -f SILVA.tmp1 SILVA.tmp2 SILVA.tmp2.clstr
 ```
 
 ## Custom databases
 
 Assuming you have a FASTA file of 16S DNA sequences
-called `/home/alex/SILVA.fasta` say, you can do this:
+called `/home/alex/GG.fa` say, you can do this:
 
 ### Global installaion
 
 ```
-cp /home/alex/SILVA.fasta $(which sixess)/../db/SILVA
-sixess -d SILVA R1.fastq.gz
+cp /home/alex/GG.fa $(which sixess)/../db/GG
+sixess -d GG R1.fastq.gz
 ```
 
 ### Local installaion
