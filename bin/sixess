@@ -121,13 +121,17 @@ ACC=$(minimap2 -t 8 -x sr "$DATABASE" $READS 2> /dev/null \
       | cut -f 6 | sort | uniq -c | sort -nr \
       | head -n 1 | sed 's/^ *//' | cut -d ' ' -f 2)
 
-msg "Top hit: $ACC"
-      
-HIT=$(gzip -c -d -f "$DATABASE" | grep -h -F "$ACC")
-msg "Description: $HIT"
-
-BINOMIAL=$(echo "$HIT" | cut -d ' ' -f 2,3)
-msg "Species: $BINOMIAL"
+# got not hit
+if [ -z "$ACC" ]; then
+  msg "No hits found!"
+  BINOMIAL="No matches"
+else
+  msg "Top hit: $ACC"
+  HIT=$(gzip -c -d -f "$DATABASE" | grep -h -F "$ACC")
+  msg "Description: $HIT"
+  BINOMIAL=$(echo "$HIT" | cut -d ' ' -f 2,3)
+  msg "Species: $BINOMIAL"
+fi
 
 #............................................................................
 banner "Done."
