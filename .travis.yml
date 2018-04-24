@@ -13,6 +13,8 @@ script:
     - "sixess 2>&1 | grep ERROR"
     - "sixess test/R1.fq.gz"
     - "sixess -q test/contigs.fa"
+    - "sixess -q - < test/contigs.fa"
+    - "cat R1.fq.gz | sixess -q -t 4 -"
     - "sixess test/contigs.fa | grep 'Streptococcus pyogenes'"
     - "sixess -d NOTEXIST test/R1.fq.gz 2>&1 | grep ERROR"
     - "sixess -t 2 -d NCBI test/R1.fq.gz"

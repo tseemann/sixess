@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-VERSION="0.2"
+VERSION="0.3"
 EXE=$(basename $0)
 BINDIR=$(dirname $(readlink -f $0))
 DBDIR=$(readlink -f "$BINDIR/../db/")
@@ -38,7 +38,9 @@ function banner {
 function usage {
   QUIET=0
   msg "SYNOPSIS\n  $EXE $VERSION - rapid 16s identification from isolate FASTQ"
-  msg "USAGE\n  $EXE [options] <reads.{fa,fq}[.gz]>"
+  msg "USAGE"
+  msg "  $EXE [options] reads.{fa,fq}[.gz]"
+  msg "  $EXE [options] - < reads.{fa,fq}[.gz]"
   msg "OPTIONS"
   msg "  -h        Show this help"
   msg "  -q        Quiet mode, no output"
@@ -46,7 +48,7 @@ function usage {
   msg "  -d FILE   Database {$DBINST} ($DB)"
   msg "  -t NUM    CPU threads ($THREADS)"
   msg "  -V        Print version and exit"
-  msg "AUTHOR\n  Torsten Seemann - https://github.com/MDU-PHL/sixess"
+  msg "AUTHOR\n  Torsten Seemann - https://github.com/tseemann/sixess"
   exit
 }
 
@@ -81,10 +83,18 @@ done
 shift $((OPTIND-1))
 
 # read our mandatory positional parameters
-[ $# -lt 1 ] && err "Please provide a sequence read file"
+[ $# -lt 1 ] && err "Please provide a sequence read file, or - (stdin)"
 
 #............................................................................
 banner "Checking command line parameters"
+
+if [ "$1" = "-" ]; then
+  READS="-"
+else
+  READFILE="$(readlink -f "$1")"
+  [ ! -r "$READFILE" ] && err "Can not read first FASTQ file: $READFILE"
+  READS="$*"
+fi
 
 if [ "$THREADS" -eq "0" ]; then
   THREADS=$(getconf _NPROCESSORS_ONLN)
@@ -95,12 +105,10 @@ DATABASE="$DBDIR/$DB"
 
 [ ! -r "$DATABASE" ] && err "Can not read FASTA database: $DATABASE"
 
-READFILE="$(readlink -f "$1")"
-[ ! -r "$READFILE" ] && err "Can not read first FASTQ file: $READFILE"
-READS="$*"
 
 msg "Reads: $READS"
 msg "Database: $DATABASE"
+msg "Threads: $THREADS"
 
 #............................................................................
 banner "Checking external dependencies"
