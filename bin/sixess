@@ -1,5 +1,13 @@
 #!/bin/bash
-set -e
+
+#............................................................................
+# Defensive bash programming
+
+# https://vaneyckt.io/posts/safer_bash_scripts_with_set_euxo_pipefail/
+set -euo pipefail
+
+#............................................................................
+# Globals
 
 VERSION="0.4"
 EXE=$(basename $0)
