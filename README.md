@@ -34,6 +34,10 @@ Bacillus cereus
 # you can provide your own database
 % sixess -p /home/alex/data -d 18S.fa.gz 454_READS.fa
 Carsonella ruddii
+
+# you can pipe to stdin too
+% bzcat chernobyl.fq.bz2 | sixess -
+Deinococcus radiodurans
 ```
 
 ## Installation
