@@ -14,6 +14,7 @@ script:
     - "sixess test/R1.fq.gz"
     - "sixess -q test/contigs.fa"
     - "sixess -q - < test/contigs.fa"
+    - "sixess -q -m out.paf test/contigs.fa && wc -l out.paf && rm -f out.paf"
     - "cat R1.fq.gz | sixess -q -t 4 -"
     - "sixess test/contigs.fa | grep 'Streptococcus pyogenes'"
     - "sixess -d NOTEXIST test/R1.fq.gz 2>&1 | grep ERROR"
