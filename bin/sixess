@@ -54,8 +54,9 @@ function usage {
 
 #...........................................................................
 # Parse the command line options
+# The initial ':' puts it in silent mode so OPTARG is set  for ?) and :)
 
-while getopts 'hqVp:d:t:' opt ; do
+while getopts ':hqVp:d:t:' opt ; do
   case $opt in
     h)
       usage
@@ -75,6 +76,12 @@ while getopts 'hqVp:d:t:' opt ; do
       ;;
     t)
       THREADS=$OPTARG
+      ;;
+   \?)
+      err "Invalid option '-$OPTARG'"
+      ;;
+    :)
+      err "Option '-$OPTARG' requires an argument."
       ;;
   esac
 done
