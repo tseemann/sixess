@@ -31,10 +31,6 @@ Enterococcus faecium
 % sixess -d RDP contigs.fa
 Bacillus cereus
 
-# you can provide your own database
-% sixess -p /home/alex/data -d 18S.fa.gz 454_READS.fa
-Carsonella ruddii
-
 # you can pipe to stdin too
 % bzcat chernobyl.fq.bz2 | sixess -
 Deinococcus radiodurans
@@ -57,7 +53,39 @@ brew install brewsci/bio/sixess  # COMING SOON
 conda install -c bioconda -c conda-forge sixess  # COMING SOON
 ```
 
-## Database
+## Usage
+
+### Input
+
+The input can be one or more sequence files, or `-` denoting `stdin`.
+The input data can be FASTQ or FASTA, and may be `.gz` compressed.
+Any read length is accepted, even whole chromosomes.
+
+### Output
+
+The output is a *single line* to `stdout`.
+If a match was found, it will be `Genus species`.
+If no prediction could be made, it will be `No matches`.
+
+### Options
+
+```
+  -q        Quiet mode, no output
+  -p DIR    Database folder (/home/tseemann/git/sixess/db)
+  -d FILE   Database {NCBI RDP SILVA.gz} (NCBI)
+  -t NUM    CPU threads (1)
+  -m FILE   Save alignments to FILE in PAF format
+  -V        Print version and exit
+```
+
+* `-q` enables "quiet mode" which only prints to stderr for errors
+* `-p` is the location of the sequence databases
+* `-d` selects the database; they can be `.gz` compressed (see [Databases](#databases)
+* `-t` increases threads; 3 is the suggested value for `minimap2`
+* `-m` allows you to save the PAF output of `minimap2`
+* `-V` prints the version and exits *e.g.* `sixess 1.0`
+
+## Databases
 
 ### NCBI (bundled, default)
 
@@ -131,7 +159,7 @@ sixess -p /home/alex/data -d GG.fa R1.fastq.gz
 ## Algorithm
 
 1. Identify reads which look like 16S (`minimap2`)
-2. Count up how many reads hit each 16S sequence
+2. Count up how many reads hit each 16S sequence (possibly weighted)
 3. Choose the top hit and report it
 
 ## Feedback
