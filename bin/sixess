@@ -4,7 +4,8 @@
 # Defensive bash programming
 
 # https://vaneyckt.io/posts/safer_bash_scripts_with_set_euxo_pipefail/
-set -euo pipefail
+# FIXME: -o pipefail returns 141 in the ACC=$(...) subshell
+set -eu
 
 #............................................................................
 # Globals
@@ -149,7 +150,7 @@ banner "Mapping reads to $DATABASE"
 # if -m not specified, send PAF to oblivion
 [ -z "$PAF" ] && PAF="/dev/null"
 
-ACC=$(minimap2 -t "$THREADS" -x sr "$DATABASE" $READS 2> /dev/null \
+ACC=$(minimap2 -t "$THREADS" -x sr "$DATABASE" $READS 2>/dev/null \
       | tee "$PAF" \
       | awk -F "\t" '$12>0{print}' \
       | cut -f 6 | sort | uniq -c | sort -nr \
