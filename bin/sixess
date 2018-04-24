@@ -16,14 +16,14 @@ DBDIR=$(readlink -f "$BINDIR/../db/")
 DBINST=$(cd "$DBDIR" && echo *)
 DB="NCBI"
 THREADS=1
-QUIET=0
+QUIET=""
 PAF=""
 
 #............................................................................
 # Reusable functions
 
 function msg {
-  if [ $QUIET -eq 0 ]; then
+  if [ -z "$QUIET" ]; then
     echo -e "$*" 1>&2
   fi
 }
@@ -45,7 +45,7 @@ function banner {
 }
 
 function usage {
-  QUIET=0
+  QUIET=""
   msg "SYNOPSIS\n  $EXE $VERSION - rapid 16s identification from isolate FASTQ"
   msg "USAGE"
   msg "  $EXE [options] reads.{fa,fq}[.gz]"
@@ -134,7 +134,7 @@ msg "Threads: $THREADS"
 #............................................................................
 banner "Checking external dependencies"
 
-for EXE in minimap2 sort uniq cut head sed gzip; do
+for EXE in minimap2 awk sort uniq cut head sed gzip; do
   WHERE=$(which $EXE)
   if [ "$WHERE" != "" ]; then
     msg "Checking for $EXE - found $WHERE"
@@ -151,6 +151,7 @@ banner "Mapping reads to $DATABASE"
 
 ACC=$(minimap2 -t 8 -x sr "$DATABASE" $READS 2> /dev/null \
       | tee "$PAF" \
+      | awk -F "\t" '$12>0{print}' \
       | cut -f 6 | sort | uniq -c | sort -nr \
       | head -n 1 | sed 's/^ *//' | cut -d ' ' -f 2)
 
