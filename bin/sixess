@@ -161,7 +161,7 @@ if [ -z "$ACC" ]; then
   BINOMIAL="No matches"
 else
   msg "Top hit: $ACC"
-  HIT=$(gzip -c -d -f "$DATABASE" | grep -h -F "$ACC")
+  HIT=$(gzip -c -d -f "$DATABASE" | grep -m 1 -F "$ACC")
   msg "Description: $HIT"
   BINOMIAL=$(echo "$HIT" | cut -d ' ' -f 2,3)
   msg "Species: $BINOMIAL"
