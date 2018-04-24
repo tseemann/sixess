@@ -9,6 +9,7 @@ DBINST=$(cd "$DBDIR" && echo *)
 DB="NCBI"
 THREADS=1
 QUIET=0
+PAF=""
 
 #............................................................................
 # Reusable functions
@@ -47,6 +48,7 @@ function usage {
   msg "  -p DIR    Database folder ($DBDIR)"
   msg "  -d FILE   Database {$DBINST} ($DB)"
   msg "  -t NUM    CPU threads ($THREADS)"
+  msg "  -m FILE   Save alignments to FILE in PAF format"
   msg "  -V        Print version and exit"
   msg "AUTHOR\n  Torsten Seemann - https://github.com/tseemann/sixess"
   exit
@@ -56,7 +58,7 @@ function usage {
 # Parse the command line options
 # The initial ':' puts it in silent mode so OPTARG is set  for ?) and :)
 
-while getopts ':hqVp:d:t:' opt ; do
+while getopts ':hqVp:d:t:m:' opt ; do
   case $opt in
     h)
       usage
@@ -76,6 +78,9 @@ while getopts ':hqVp:d:t:' opt ; do
       ;;
     t)
       THREADS=$OPTARG
+      ;;
+    m)
+      PAF=$OPTARG
       ;;
    \?)
       err "Invalid option '-$OPTARG'"
@@ -112,6 +117,7 @@ DATABASE="$DBDIR/$DB"
 
 [ ! -r "$DATABASE" ] && err "Can not read FASTA database: $DATABASE"
 
+[ -r "$PAF" ] && err "Output file '-m $PAF' already exists."
 
 msg "Reads: $READS"
 msg "Database: $DATABASE"
@@ -132,7 +138,11 @@ done
 #............................................................................
 banner "Mapping reads to $DATABASE"
 
+# if -m not specified, send PAF to oblivion
+[ -z "$PAF" ] && PAF="/dev/null"
+
 ACC=$(minimap2 -t 8 -x sr "$DATABASE" $READS 2> /dev/null \
+      | tee "$PAF" \
       | cut -f 6 | sort | uniq -c | sort -nr \
       | head -n 1 | sed 's/^ *//' | cut -d ' ' -f 2)
 
